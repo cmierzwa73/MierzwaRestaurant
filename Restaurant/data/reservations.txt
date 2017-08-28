@@ -1,0 +1,9 @@
+﻿{ "reservations":[ 
+ {"ID":"1","Name":"Alfred","Filled":"No","Date":"08-28-2017:Monday","Time":"06:45 PM","Guests":"2"},
+ {"ID":"2","Name":"Lance","Filled":"No","Date":"08-29-2017:Tuesday","Time":"05:15 PM","Guests":"5"},
+ {"ID":"3","Name":"Moreno","Filled":"No","Date":"08-30-2017:Wednesday","Time":"06:00 PM","Guests":"3"},
+ {"ID":"4","Name":"Myers","Filled":"No","Date":"08-29-2017:Tuesday","Time":"07:00 PM","Guests":"8"},
+ {"ID":"5","Name":"Smith","Filled":"No","Date":"08-30-2017:Wednesday","Time":"05:30 PM","Guests":"2"},
+ {"ID":"6","Name":"Berglunds","Filled":"No","Date":"08-30-2017:Wednesday","Time":"08:00 PM","Guests":"4"},
+ {"ID":"7","Name":"Topping","Filled":"No","Date":"08-31-2017:Thursday","Time":"07:30 PM","Guests":"4"}
+ ]  } 

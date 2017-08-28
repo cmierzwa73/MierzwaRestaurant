@@ -1,0 +1,351 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <title>Manage Reservations</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/jquery-ui.css">
+    <script src="Scripts/jquery-3.1.1.min.js"></script>
+    <script src="Scripts/jquery-ui-1.12.1.min.js"></script>
+    <script src="Scripts/angular.min.js"></script>
+    <script src="Scripts/mg/package/modules/ngStorage/ngStorage.min.js"></script>
+</head>
+<body ng-app="myApp" ng-controller="reservationCtrl">
+
+    <div class="w3-container">
+
+        <div style="width:60%;">
+            <h3 style="width:25%;display:inline-block">Reservations</h3>
+            <span style="float:right;padding-top:10px"><button class="w3-btn w3-green w3-ripple" ng-click="editReservation('new')">&#9998; Create Reservation</button></span>
+        </div>
+        <div style="width:60%; display:inline-block;border-radius:10px;border: 1px solid #73AD21;">
+            <table class=" w3-table w3-striped" border="0" cellpadding="2" cellspacing="10" >
+                <tr>
+                    <th>Edit</th>
+                    <th>Filled</th>
+                    <th ng-click="orderByRes('Name')" style="text-decoration: underline">Party Name</th>
+                    <th ng-click="orderByRes('Date')" style="text-decoration: underline">Date</th>
+                    <th>Time</th>
+                    <th>Guests</th>
+                    <th></th>
+                </tr>
+                <tr ng-repeat="x in reservations | orderBy:resOrderBy">
+                    <td>
+                        <button class="w3-btn w3-ripple" ng-click="editReservation(x.ID)">&#9998; Edit</button>
+                    </td>
+                    <td>{{x.Filled}}</td>
+                    <td valign="middle">{{ x.Name }}</td>
+                    <td>{{ x.Date }}</td>
+                    <td>{{ x.Time }}</td>
+                    <td style="text-align:right;padding-right:20px">{{ x.Guests | number}}</td>
+                    <td style="text-align:center"><button class="w3-btn w3-red w3-ripple" style="border-radius:10px;" ng-click="removeReservation($index)">Cancel</button> </td>
+                </tr>
+                <tr>
+                    <td colspan="6"></td>
+                </tr>
+            </table>  
+        </div>
+        <div style="width:35%;display:inline-block;vertical-align:top; margin-left:20px;">
+            <form ng-hide="hideform">
+                <table style="width:80%;margin-left:10px; margin-bottom:10px; padding:15px,15px,15px,15px;border-radius:20px;border: 1px solid #73AD21;" cellpadding="2" cellspacing="10">
+                    <tr>
+                        <td>
+
+                            <h3 ng-show="edit">Create New Reservation:</h3>
+                            <h3 ng-hide="edit">Edit Reservation:</h3>
+                            <input type="hidden" ng-model="ID">
+                            <label>Party Name:</label>
+                            <input class="w3-input w3-border" type="text" ng-model="Name" placeholder="Reservation Name">
+                            <label>Filled:</label>
+                            <select ng-model="Filled" style="padding:2px 2px 2px 2px; margin-top:10px;">
+                                 <option value="No">No
+                                <option value="Yes">Yes
+                            </select>
+                            <br />
+                            <label>Date:</label>
+                            <input class="w3-input w3-border" type="text" ng-model="Date" jqdatepicker style="cursor: pointer; cursor: hand;" readonly />
+                            <br />
+                            <label>Time:</label>
+                            <timepicker></timepicker>
+                            <br />
+                            <label>Guests:</label>
+                            <input class="w3-input w3-border" type="text" ng-model="Guests" placeholder="Guests">
+                            <br />
+                            <button class="w3-btn w3-green w3-ripple" ng-disabled="error || incomplete" ng-click="saveReservation(ID)">&#10004; Save Changes</button>
+                            <button class="w3-btn w3-red w3-ripple" style="border-radius:10px;" ng-click="clearEdit($index)">Cancel</button>
+                        </td>
+                    </tr>
+                </table>
+            </form>
+            
+        </div>
+    </div>
+
+    <script>
+        var app = angular.module('myApp', ['ngStorage']);
+
+        //Disable caching.
+        app.config(['$httpProvider', function ($httpProvider) {
+            //initialize get if not there
+            if (!$httpProvider.defaults.headers.get) {
+                $httpProvider.defaults.headers.get = {};
+            }
+            //disable IE ajax request caching
+            $httpProvider.defaults.headers.get['If-Modified-Since'] = 'Mon, 26 Jul 1997 05:00:00 GMT';
+            // extra
+            $httpProvider.defaults.headers.get['Cache-Control'] = 'no-cache';
+            $httpProvider.defaults.headers.get['Pragma'] = 'no-cache';
+        }]);
+
+        //Datepicker
+        app.directive('jqdatepicker', function() {
+            return {
+                restrict: 'A',
+                require: 'ngModel',
+                link: function (scope, element, attrs, ctrl) {
+
+                    $(element).datepicker({
+                        dateFormat: 'mm-dd-yy:DD',
+                        onSelect: function(date) {
+                            ctrl.$setViewValue(date);
+                            ctrl.$render();
+                            scope.$apply();
+                        }
+                    });
+                }
+            };
+        });
+
+        //Template for the time picker, no CSS, pure HTML. The time-picker tag will be replaced by this
+        var timePickerTemplate = [
+            '<div class="timePicker">',
+            '<label ng-click="toggleTimePicker()">',
+            '<input class="w3-input w3-border" type="text" ng-model="Time" ng-bind="timeValue" placeholder="Time" disabled style="cursor: pointer; cursor: hand;">',
+            '</label>',
+            '<div ng-show="selecting">',
+            '<table style="width=50%;border-radius:10px;border: 1px solid #73AD21;">',
+            '<tr class="navigation">',
+            '<tr class="time">',
+            '<td class="mer" style="width:20%;cursor: pointer; cursor: hand;"><div ng-click="selectMeridian(meridian)" ng-repeat="meridian in meridians" ng-bind="meridian"></div></td>',
+            '<td class="hours" style="width:20%;cursor: pointer; cursor: hand;"><div ng-click="selectHour(hour)" ng-repeat="hour in hours" ng-bind="hour.label"></div></td>',
+            '<td class="minutes" style="width:20%;cursor: pointer; cursor: hand;"><div ng-click="selectMinute(minute)" ng-repeat="minute in minutes" ng-bind="minute"></div></td>',
+            '</tr>',
+            '</table>',
+            '</div>',
+            '</div>'
+        ].join('\n');
+
+        //https://stackoverflow.com/questions/25971845/custom-time-picker-using-angular-js
+        app.directive("timepicker", function() {
+            return {
+                restrict: 'E',
+                templateUrl: "timePicker.tmpl",
+                transclude: true,
+                controller: function($scope) {
+
+                    var timeObj = {
+                        AM: [],
+                        PM: []
+                    };
+                    for (var i = 0; i <= 11; i++) {
+                        timeObj.AM.push({
+                            label: (i < 10 ? '0' + i : i),
+                            value: i
+                        });
+                    }
+                    timeObj.PM.push({
+                        label: 12,
+                        value: 12
+                    });
+                    for (var i = 1; i <= 11; i++) {
+                        timeObj.PM.push({
+                            label: (i < 10 ? '0' + i : i),
+                            value: i + 12
+                        });
+                    }
+
+                    $scope.meridians = ["AM", "PM"];
+                    $scope.hours = timeObj.AM;
+                    $scope.minutes = ["00", "15", "30", "45"];
+
+                    if ($scope.timeValue == undefined) {
+                        $scope.timeValue = 9 * 60 * 60 * 1000;
+                    }
+
+                    $scope.toggleTimePicker = function() {
+                        $scope.selecting = !$scope.selecting;
+                    };
+
+                    $scope.$watch('timeValue', function(val) {
+                        $scope.updateLabel(val);
+                    });
+
+                    $scope.selectMeridian = function(meridian) {
+                        $scope.hours = timeObj[meridian];
+                        $scope.timeValue = (meridian == "AM" ? (9 * 60 * 60 * 1000) : (15 * 60 * 60 * 1000));
+                    };
+
+                    $scope.selectHour = function(hour) {
+                        $scope.timeValue = (hour.value * 60 * 60 * 1000);
+                    };
+
+                    $scope.selectMinute = function(minute) {
+                        var time = $scope.timeValue;
+                        var mts = time % (60 * 60 * 1000);
+                        $scope.timeValue = (time - mts + minute * 60 * 1000);
+                    };
+
+                    $scope.updateLabel = function(timeValue) {
+                        var mts = timeValue % (60 * 60 * 1000);
+                        var hrs = (timeValue - mts) / (60 * 60 * 1000);
+                        var mts2 = mts / (60 * 1000);
+                        var mer = (hrs < 11) ? "AM" : "PM";
+                        var hrs2 = (hrs > 12) ? hrs - 12 : hrs;
+
+                        $scope.Time = (hrs2 < 10 ? '0' + hrs2 : hrs2) + ":" + (mts2 == 0 ? '00' : mts2) + " " + mer;
+                    };
+                }
+            }
+        }).run([
+        '$templateCache',
+        function($templateCache) {
+            $templateCache.put('timePicker.tmpl', timePickerTemplate); // This saves the html template we declared before in the $templateCache
+        }
+        ]);
+        app.controller('reservationCtrl', function ($scope, $http, $localStorage) {
+            $scope.Name = '';
+            $scope.Filled = '';
+            $scope.Date = '';
+            $scope.Time = '';
+            $scope.Guests = '';
+            $scope.edit = true;
+            $scope.error = false;
+            $scope.incomplete = false;
+            $scope.hideform = true;
+            $scope.editReservation = function (id) {
+                $scope.hideform = false;
+                if (id == 'new') {
+                    $scope.edit = true;
+                    $scope.incomplete = true;
+                    $scope.ID = '';
+                    $scope.Name = '';
+                    $scope.Filled = '';
+                    $scope.Date = '';
+                    $scope.Time = '';
+                    $scope.Guests = '';
+                } else {
+                    $scope.edit = false;
+                    $scope.ID = $scope.reservations[id - 1].ID;
+                    $scope.Name = $scope.reservations[id - 1].Name;
+                    $scope.Filled = $scope.reservations[id - 1].Filled;
+                    $scope.Date = $scope.reservations[id - 1].Date;
+                    $scope.Time = $scope.reservations[id - 1].Time;
+                    $scope.Guests = $scope.reservations[id - 1].Guests;
+                }
+            };
+
+            //Sort reservations
+            $scope.orderByRes = function (x) {
+                $scope.resOrderBy = x;
+            }
+
+            //Delete reservation
+            $scope.removeReservation = function (x) {
+                var rusure = confirm("Are you sure you want to cancel the reservation?");
+                if (rusure) {
+                    $scope.hideform = true;
+                    $scope.ID = '';
+                    $scope.Name = '';
+                    $scope.Date = '';
+                    $scope.Time = '';
+                    $scope.Guests = '';
+                    $scope.reservations.splice(x, 1);
+                }
+            }
+
+            //Clear/Hide edit/new form.
+            $scope.clearEdit = function()
+            {
+                $scope.ID = '';
+                $scope.Name = '';
+                $scope.Filled = '';
+                $scope.Date = '';
+                $scope.Time = '';
+                $scope.Guests = '';
+                $scope.hideform = true;
+            }
+
+            //Save reservation New | Update
+            $scope.saveReservation = function (id) {
+                $scope.hideform = false;
+
+                if (id == '') {
+                    //New reservation
+                    var nextID = Math.max.apply(Math, $scope.reservations.map(function (o) { return o.ID; }))
+                    $scope.reservations.push({ 'ID': (nextID + 1), 'Name': $scope.Name, 'Filled': $scope.Filled, 'Date': $scope.Date, 'Time': $scope.Time, 'Guests': $scope.Guests });
+                } else {
+                    //Existing reservation
+
+                    for (var i = 0; i < $scope.reservations.length; i++) {
+
+                        if ($scope.reservations[i].ID == id) {
+                            $scope.reservation = $scope.reservations[i]
+                            $scope.reservation.Name = $scope.Name;
+                            $scope.reservation.Filled = $scope.Filled;
+                            $scope.reservation.Date = $scope.Date;
+                            $scope.reservation.Time = $scope.Time;
+                            $scope.reservation.Guests = $scope.Guests;
+                            break;
+                        }
+                    }
+                }
+
+                $scope.ID = '';
+                $scope.Name = '';
+                $scope.Filled = '';
+                $scope.Date = '';
+                $scope.Time = '';
+                $scope.Guests = '';
+            };
+
+            $scope.$watch('Name', function () { $scope.test(); });
+            $scope.$watch('Filled', function () { $scope.test(); });
+            $scope.$watch('Date', function () { $scope.test(); });
+            $scope.$watch('Time', function () { $scope.test(); });
+            $scope.$watch('Guests', function () { $scope.test(); });
+
+            $scope.test = function () {
+                var numbers = new RegExp(/^[0-9]+$/);
+                if (numbers.test(+$scope.Guests))
+                {
+                    $scope.error = false;
+                } else {
+                    $scope.error = true;
+                }
+
+                $scope.incomplete = false;
+                //if ($scope.edit && (!$scope.Name.length ||
+                if ((!$scope.Name.length ||
+                !$scope.Date.length || !$scope.Filled.length ||
+                !$scope.Time.length || !$scope.Guests.length)) {
+                    $scope.incomplete = true;
+                }
+            };
+
+            //if ($localStorage.reservations)
+            //{//Empty
+            //    console.log('empty');
+                $http.get("data/reservations.txt")
+                    .then(function (response) { $scope.reservations = response.data.reservations; $localStorage.reservations = response.data.reservations; });
+            //}
+            //else
+            //{//Not Empty
+            //    $scope.reservations = $localStorage.reservations;
+            //    console.log('Data', $localStorage.reservations);
+            //}
+
+        });
+    </script>
+
+</body>
+</html>
+
